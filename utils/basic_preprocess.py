@@ -1,7 +1,7 @@
 from os import pipe
 from preprocess.date_converter import DateConverter
 from sklearn.pipeline import Pipeline
-from preprocess.nan_fixer import  FixNanRowsWithMean
+from preprocess.nan_fixer import  CustomImputer
 import pandas as pd
 from preprocess.encoding import FrecuencyEncoding
 from sklearn.model_selection import train_test_split
@@ -23,22 +23,22 @@ def basic_preprocess(df, target : str):
 
     pipeline = Pipeline([
         ("date_converter",  DateConverter("trans_date_trans_time")),
-        ("imputer", FixNanRowsWithMean()),
-        ("encoding", FrecuencyEncoding()),
-        ("scaler", CustomScaler(df.drop(target, axis=1).columns.tolist())),
-        ("pca", PCA(n_components=0.99))
+        ("imputer",         CustomImputer(strategy="most_frequent")),
+        ("encoding",        FrecuencyEncoding()),
+        ("scaler",          CustomScaler(df.drop(target, axis=1).columns.tolist())),
+        ("pca",             PCA(n_components=0.999))
     ])
 
 
     pipeline.fit(df_train.drop(target, axis=1), df_train[target])
-    X_train = pd.DataFrame(pipeline.transform(df_train.drop(target, axis=1)), index=df_train.index)
-    X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)), index=df_test.index)
-    X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)), index=df_val.index)
+    X_train = pd.DataFrame(pipeline.transform(df_train.drop(target, axis=1)),   index=df_train.index)
+    X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)),    index=df_test.index)
+    X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)),     index=df_val.index)
 
 
-    df_train = pd.concat([X_train, df_train[target]], axis=1)
-    df_test = pd.concat([X_test, df_test[target]], axis=1)
-    df_val = pd.concat([X_val, df_val[target]], axis=1)
+    df_train    = pd.concat([X_train, df_train[target]], axis=1)
+    df_test     = pd.concat([X_test, df_test[target]], axis=1)
+    df_val      = pd.concat([X_val, df_val[target]], axis=1)
     
 
     return [df_train, df_test, df_val]

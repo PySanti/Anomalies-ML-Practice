@@ -14,11 +14,11 @@ El [dataset](https://www.kaggle.com/datasets/priyamchoksi/credit-card-transactio
 ## Preprocesamiento
 
 
-1- Manejo de nans: a continuacion se muestra las columnas con valores nan y su porcentaje de nans.
+1- **Manejo de nans**: a continuacion se muestra las columnas con valores nan y su porcentaje de nans.
 
-**merch_zipcodejj** : 15.11%
+* merch_zipcode : 15.11%
 
-2- Codificacion: las columnas categoritcas son las siguientes.
+2- **Codificacion**: las columnas categoritcas son las siguientes.
 
 ```
 ['trans_date_trans_time', 'merchant', 'category', 'first', 'last', 'gender', 'street', 'city', 'state', 'job', 'dob', 'trans_num']
@@ -31,8 +31,7 @@ Para la columna **trans_date_trans_time** se hara una conversion numerica para c
 En cuanto al resto de variables categoricas, tenemos el problema de que cada una de ellas tiene muchos valores diferentes,
 por tanto, si implementamos OneHotEncoding como hacemos comunmente, el dataframe tomara un peso ingente. Por lo mismo, utilizaremos
 *Frecuency Encoding*, una forma de codificacion en la cual se reemplaza cada categoria por su frecuencia de aparicion en el subconjunto.
-La implementacion de frecuency Encoding conllevaria tener mucho cuidado con el manejo de los subcojuntos de entrenamiento y test, ya que la
-frecuencia de cada categoria debe ser relativa a su aparicion en el subconjunto.
+
 
 Las variables categoricas restantes son:
 
@@ -40,13 +39,15 @@ Las variables categoricas restantes son:
 ['merchant', 'category', 'first', 'last', 'gender', 'street', 'city', 'state', 'job', 'dob']
 ```
 
-3- Scalers: se aplico *RobustScaler*.
+3- **Scalers:** se aplico *RobustScaler*.
 
-4- Sampling Bias: no se va a estudiar.
+4- **Sampling Bias**: no se va a estudiar.
 
-5- Estudio de correlaciones.
+5- **Estudio de correlaciones**: teniendo en cuenta que, el proceso de extraccion y seleccion logro reducir a 1 caracteristica, no fue necesario estudiar correlaciones.
 
-6- Extraccion y/o seleccion de caracteristicas: despues de realizar el estudio de seleccion de caracteristicas, se concluyo que las mas relevantes son las siguientes.
+6- **Extraccion y/o seleccion de caracteristicas**: despues de realizar el estudio de seleccion de caracteristicas, se concluyo que las mas relevantes son las siguientes.
+
+
 
 ```
 
@@ -71,32 +72,86 @@ Las variables categoricas restantes son:
 13                   long    0.011645
 11                    zip    0.011503
 ```
+Se aplico PCA exitosamente, logrando reducir a una sola caracteristica, manteniendo 0.999% del ratio de varianza.
 
-7- Estudio de distribucion gaussiana de las features: fue imposible dada las dimensiones del dataset
+7- **Estudio de distribucion gaussiana de las features**: fue imposible dada las dimensiones del dataset
 
 Nota: nos enfretamos a un problema bastante molesto y es que, al utizar el pipeline que se presenta a continuacion:
 
 ```
-        pipeline = Pipeline([
-            ("date_converter",  DateConverter("trans_date_trans_time")),
-            ("imputer", FixNanRowsWithMean()),
-            ("encoding", FrecuencyEncoding()),
-            ("scaler", CustomScaler(df.drop(target, axis=1).columns.tolist())),
-            ("pca", PCA(n_components=0.99))
-        ])
+    pipeline = Pipeline([
+        ("date_converter",  DateConverter("trans_date_trans_time")),
+        ("imputer",         CustomImputer(strategy="most_frequent")),
+        ("encoding",        FrecuencyEncoding()),
+        ("scaler",          CustomScaler(df.drop(target, axis=1).columns.tolist())),
+        ("pca",             PCA(n_components=0.999))
+    ])
+
 
 ```
 
-El algoritmo de PCA genera un dataframe completamente nuevo cuyos indices no se corresponden con los de los dataframes, esto provocaba que, al unir los dataframes producto de las transformaciones con las columnas target, se generaran valores nan.
+El algoritmo de PCA *genera un dataframe completamente nuevo cuyos indices no se corresponden con los de los dataframes originales*, esto provocaba que, al unir los dataframes producto de las transformaciones con las columnas target, se generaran valores **NaN**.
 
 Para solucionar esto, se especifico el parametro index al generar el dataframe producto de la transformacion.
 
 ```
-X_train = pd.DataFrame(pipeline.fit_transform(df_train.drop(target, axis=1), df_train[target]), index=df_train.index)
-    X_test = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)), index=df_test.index)
+  pipeline.fit(df_train.drop(target, axis=1), df_train[target])
+    X_train = pd.DataFrame(pipeline.transform(df_train.drop(target, axis=1)),   index=df_train.index)
+    X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)),    index=df_test.index)
+    X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)),     index=df_val.index)
+
 ```
 
-Ademas, en este proceso de Preprocesamiento aprendimos las implicaciones que tiene el uso del metodo **fit**, y aprendimos la forma correcta de dividir el conjunto ed datos y de transformarlo posteriormente.
+Ademas, en este proceso de preprocesamiento aprendimos las implicaciones que tiene el uso del metodo **fit**, y aprendimos la forma correcta de dividir el conjunto ed datos y de transformarlo posteriormente.
+
+El codigo utilizado finalmente para preprocesar fue el siguiente.
+
+```
+from preprocess.date_converter import DateConverter
+from sklearn.pipeline import Pipeline
+from preprocess.nan_fixer import  CustomImputer
+import pandas as pd
+from preprocess.encoding import FrecuencyEncoding
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from preprocess.scaler import CustomScaler
+
+
+
+def basic_preprocess(df, target : str):
+
+    important_features = ['amt', 'category', 'merchant', 'trans_date_trans_time', 'unix_time', 'dob', 'street', 'merch_lat', 'merch_long', 'city', 'merch_zipcode', 'city_pop', 'job', 'last', 'first', 'cc_num', 'long', 'zip', "is_fraud"]
+
+    df = df.drop(["trans_num", "Unnamed: 0"], axis=1)
+    df = df[important_features]
+    df = df.copy()
+
+    df_train, unseen_df = train_test_split(df, test_size=0.2, shuffle=True, random_state=42, stratify=df[target])
+    df_val, df_test = train_test_split(unseen_df, test_size=0.5, shuffle=True, random_state=42, stratify=unseen_df[target])
+
+    pipeline = Pipeline([
+        ("date_converter",  DateConverter("trans_date_trans_time")),
+        ("imputer",         CustomImputer(strategy="most_frequent")),
+        ("encoding",        FrecuencyEncoding()),
+        ("scaler",          CustomScaler(df.drop(target, axis=1).columns.tolist())),
+        ("pca",             PCA(n_components=0.999))
+    ])
+
+
+    pipeline.fit(df_train.drop(target, axis=1), df_train[target])
+    X_train = pd.DataFrame(pipeline.transform(df_train.drop(target, axis=1)),   index=df_train.index)
+    X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)),    index=df_test.index)
+    X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)),     index=df_val.index)
+
+
+    df_train    = pd.concat([X_train, df_train[target]], axis=1)
+    df_test     = pd.concat([X_test, df_test[target]], axis=1)
+    df_val      = pd.concat([X_val, df_val[target]], axis=1)
+    
+
+    return [df_train, df_test, df_val]
+
+```
 
 ## Entrenamiento
 
