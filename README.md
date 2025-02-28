@@ -157,10 +157,62 @@ def basic_preprocess(df, target : str):
 
 *Se llevara a cabo un proceso iterativo de seleccion de modelo, entrenamiento y evaluacion de cada algoritmo por separado*
 
-### K-MEANS
-
-### DB-SCAN
+Nota: al final se opto por no usar K-MEANS ni DBSCAN dado su peso.
 
 ### Isolation Forest
 
+
+
 ### GMM
+
+Fue interesante en este proceso aprender mas sobre este algoritmo y su forma de funcionamiento en la practica. Este algoritmo, una vez es entrenado, a la hora de predecir implementa el metodo `score_samples()`, el cual toma las entradas y retorna un arreglo con numeros que representan las probabilidades de cada ejemplo de ser *normales*. La cuestion es que, el algoritmo no tiene una forma automatizada de generar el umbral mas optimo, es decir, el porcentaje a partir del cual se empieza a considerar un ejemplo como normal o anomalo, es algo que se tiene que hacer manualmente como en el ejemplo de abajo.
+
+Este algoritmo logro resultados bastante por debajo de las expectativas, logrando para su mejor umbral un f1_score para la clase positiva de 0.012%.
+
+
+Se empleo el siguiente codigo para entrenamiento y evaluacion del algoritmo:
+
+
+```
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import f1_score, classification_report, confusion_matrix
+from time import time
+import numpy as np
+import joblib
+
+
+
+
+TARGET = "is_fraud"
+df_train = pd.read_csv("./data/train.csv")
+df_test = pd.read_csv("./data/test.csv")
+df_val = pd.read_csv("./data/val.csv")
+
+
+
+def custom_scorer(estimator, X):
+    log_probs_val = estimator.score_samples(df_val.drop(TARGET, axis=1))
+    best_score = 0
+    for a in np.linspace(log_probs_val.min(), log_probs_val.max(), 100):
+        y_pred = (log_probs_val < a).astype(int)
+        f1 = f1_score(df_val[TARGET], y_pred, pos_label=1)
+        if f1 > best_score:
+            best_score = f1
+    return best_score
+
+param_grid = {  
+    'n_components': [2],  # Número de componentes  
+    'covariance_type': ['full', 'tied', 'diag', 'spherical'],  # Tipos de covarianza  
+    'max_iter': [100, 200, 300],  # Número máximo de iteraciones  
+    'tol': [1e-3, 1e-4, 1e-6]  # Tolerancia  
+}
+
+grid_search = GridSearchCV(GaussianMixture(), param_grid, cv=3, n_jobs=4, verbose=10, scoring=custom_scorer)
+grid_search.fit(df_train.query(f"{TARGET} == 0").drop(TARGET, axis=1))
+print(grid_search.best_score_)
+
+joblib.dump(grid_search.best_estimator_, "gmm.joblib")
+
+```
