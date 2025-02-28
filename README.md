@@ -152,15 +152,80 @@ def basic_preprocess(df, target : str):
     return [df_train, df_test, df_val]
 
 ```
-
 ## Entrenamiento
+
+La idea sera evaluar los resultados de cada uno de los algoritmos utilizando y sin utilizar PCA, para revisar que tanto varian los resultados.
 
 *Se llevara a cabo un proceso iterativo de seleccion de modelo, entrenamiento y evaluacion de cada algoritmo por separado*
 
 Nota: al final se opto por no usar K-MEANS ni DBSCAN dado su peso.
 
+
+
+### Entrenamiento utilizando PCA
+
+
 ### Isolation Forest
 
+En este caso, el resultado del proceso de seleccion de modelo fue el siguiente:
+
+```
+Mejores hiperparámetros: {'random_state': 42, 'n_estimators': 100, 'max_samples': 0.65, 'max_features': 0.75, 'contamination': 0.01, 'bootstrap': False}
+Mejor precision: 0.05793688126031915
+
+```
+
+El codigo utilizado para realizar la seleccion de modelo fue:
+
+```
+import pandas as pd
+from sklearn.metrics import f1_score
+import joblib
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import f1_score
+from sklearn.model_selection import RandomizedSearchCV
+
+
+
+
+TARGET = "is_fraud"
+df_train = pd.read_csv("./data/train.csv")
+df_test = pd.read_csv("./data/test.csv")
+df_val = pd.read_csv("./data/val.csv")
+
+
+param_grid = {
+    'n_estimators': [50, 100, 200, 300],
+    'max_samples': [0.3, 0.45, 0.5, 0.65],
+    'contamination': [0.01, 0.05, 0.1, "auto"],
+    'max_features': [0.5, 0.75, 1.0],
+    'bootstrap': [True, False],
+    'random_state': [42]
+}
+
+def custom_scorer(estimator, X, y):
+    y_pred = estimator.predict(X)
+    y_pred[y_pred == 1] = 0
+    y_pred[y_pred == -1] = 1
+    return f1_score(y, y_pred, pos_label=1)
+
+grid_search = RandomizedSearchCV(
+    estimator=IsolationForest(),
+    param_distributions=param_grid,
+    scoring=custom_scorer,
+    n_iter = 50,
+    cv=3,
+    n_jobs=4,
+    verbose=10
+)
+
+grid_search.fit(df_train.drop(TARGET, axis=1), df_train[TARGET])
+joblib.dump(grid_search.best_estimator_, "if.joblib")
+
+print("Mejores hiperparámetros:", grid_search.best_params_)
+print("Mejor precision:", grid_search.best_score_)
+
+```
 
 
 ### GMM
@@ -216,3 +281,14 @@ print(grid_search.best_score_)
 joblib.dump(grid_search.best_estimator_, "gmm.joblib")
 
 ```
+
+
+Su mejor combinacion de hiperparametros fue:
+
+
+```
+{'covariance_type': 'diag', 'init_params': 'kmeans', 'max_iter': 100, 'means_init': None, 'n_components': 2, 'n_init': 1, 'precisions_init': None, 'random_state': None, 'reg_covar': 1e-06, 'tol': 0.001, 'verbose': 0, 'verbose_interval': 10, 'warm_start': False, 'weights_init': None}
+
+```
+
+### Entrenamiento sin PCA
