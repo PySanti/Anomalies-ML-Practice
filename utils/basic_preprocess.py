@@ -1,4 +1,3 @@
-from os import pipe
 from preprocess.date_converter import DateConverter
 from sklearn.pipeline import Pipeline
 from preprocess.nan_fixer import  CustomImputer
@@ -17,6 +16,8 @@ def basic_preprocess(df, target : str):
     df = df.drop(["trans_num", "Unnamed: 0"], axis=1)
     df = df[important_features]
     df = df.copy()
+
+    # df, df_ = train_test_split(df, test_size=0.5, shuffle=True, random_state=42, stratify=df[target])
 
     df_train, unseen_df = train_test_split(df, test_size=0.2, shuffle=True, random_state=42, stratify=df[target])
     df_val, df_test = train_test_split(unseen_df, test_size=0.5, shuffle=True, random_state=42, stratify=unseen_df[target])
