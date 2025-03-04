@@ -152,7 +152,104 @@ def basic_preprocess(df, target : str):
     return [df_train, df_test, df_val]
 
 ```
-## Entrenamiento
+
+Correccion: despues de haber entrenado los algoritmos utilizando el procedimiento de preprocesamiento anterior, procedimos a quitar el paso del PCA del pipeline para estudiar los resultados de los algoritmos sin aplicar PCA, esto nos llevo a obtener resultados muy raros. Primero, el pipeline empezo a generar unas advertencias del siguiente estilo:
+
+```
+/home/santiago/.local/lib/python3.10/site-packages/sklearn/pipeline.py:62: FutureWarning: This Pipeline instance is not fitted yet. Call 'fit' with appropriate arguments before using other methods such as transform, predict, etc. This will raise an error in 1.8 instead of the current warning.
+warnings.warn(
+/home/santiago/.local/lib/python3.10/site-packages/sklearn/pipeline.py:62: FutureWarning: This Pipeline instance is not fitted yet. Call 'fit' with appropriate arguments before using other methods such as transform, predict, etc. This will raise an error in 1.8 instead of the current warning.
+warnings.warn(
+```
+
+Ademas, el pipeline estaba resultando en multiples valores Nan despues de las transformaciones.
+
+Despues de algo de tiempo de estudio nos dimos cuenta de lo siguiente:
+
+1- Advertencias: las advertencias estaban siendo producto de un error de construccion en los transformadores. `scikit-learn` obliga a que todos los parametros recibidos en el constructor de un transformador sean atributos del mismo, y los que no se reciban, deben tener la estructura de `atributo_`. Revisar este [link](https://scikit-learn.org/stable/developers/develop.html#instantiation).
+
+2- Los valores Nan: estos estaban siendo generados por el transformador `CustomImputer`. Como sabemos, dicho transformador esta construido encima de `SimpleImputer`, lo que hace es tomar la transformacion producida por `SimpleImputer` y convertir en dataframe el resultado. El problema es que, dicho resultado, se estaba transformando en un dataframe sin especificar indices ni columnas. Este termino siendo el transformador arreglado.
+
+```
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class CustomImputer(BaseEstimator, TransformerMixin):
+    """
+        Implementa el SimpleImputer pero, a diferencia del mismo, retorna
+        dataframes y no matrices de numpy
+    """
+    def __init__(self, strategy : str, attributes) -> None:
+        self.strategy = strategy
+        self.imputer_ = SimpleImputer(strategy=strategy)
+        self.attributes = attributes
+    def fit(self, X, y=None):
+        print("CustomImputer Ajustado")
+        self.imputer_.fit(X[self.attributes], y)
+        return self
+
+    def transform(self, X, y=None):
+        transformed_data = self.imputer_.transform(X.copy()[self.attributes])
+        transformed_data = pd.DataFrame(transformed_data, columns=self.attributes, index=X[self.attributes].index)
+        X[self.attributes] = transformed_data
+        print("CustomImputer transformado")
+        return X
+
+```
+
+3- Ademas de lo anterior, habia un problema en la comunicacion entre `CustomImputer` y `DateConverter`. Esto pasaba por que, por alguna razon, el `CustomImputer` estaba transformando el tipo de las columnas que no convertia a `object`. Esto tambien fue solucionado.
+
+4- Por ultimo, tambien nos dimos cuenta de que, la llamada al metodo `fit()` del Pipeline estaba generando un comportamiento inesperado, principalmente por que de por si, los pipelines estan pensados para ser construidos con un estimador al final. La version final de la funcion `basic_preprocess` es la siguiente:
+
+```
+from preprocess.date_converter import DateConverter
+from sklearn.pipeline import Pipeline
+from preprocess.nan_fixer import  CustomImputer
+import pandas as pd
+from preprocess.encoding import FrecuencyEncoding
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from preprocess.scaler import CustomScaler
+import numpy as np
+
+
+
+
+def basic_preprocess(df, target : str):
+
+    important_features = ['amt', 'category', 'merchant', 'trans_date_trans_time', 'unix_time', 'dob', 'street', 'merch_lat', 'merch_long', 'city', 'merch_zipcode', 'city_pop', 'job', 'last', 'first', 'cc_num', 'long', 'zip', "is_fraud"]
+
+    df = df.drop(["trans_num", "Unnamed: 0"], axis=1)
+    df = df[important_features]
+
+    df_train, unseen_df = train_test_split(df, test_size=0.2, shuffle=True, random_state=42, stratify=df[target])
+    df_val, df_test = train_test_split(unseen_df, test_size=0.5, shuffle=True, random_state=42, stratify=unseen_df[target])
+
+    pipeline = Pipeline([
+        ("imputer",         CustomImputer(strategy="mean", attributes=["merch_zipcode"])),
+        ("date_converter",  DateConverter(["trans_date_trans_time", "dob"])),
+        ("encoding",        FrecuencyEncoding()),
+        ("scaler",          CustomScaler(df.drop(target, axis=1).columns.tolist()))
+    ])
+    
+
+    X_train = pd.DataFrame(pipeline.fit_transform(df_train.drop(target, axis=1), df_train[target]),   index=df_train.index)
+    X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)),    index=df_test.index)
+    X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)),     index=df_val.index)
+
+
+    df_train    = pd.concat([X_train, df_train[target]], axis=1)
+    df_test     = pd.concat([X_test, df_test[target]], axis=1)
+    df_val      = pd.concat([X_val, df_val[target]], axis=1)
+
+    
+    return [df_train, df_test, df_val]
+
+```
+
+## Entrenamiento (previo a deteccion de problemas de preprocesamiento)
 
 La idea sera evaluar los resultados de cada uno de los algoritmos utilizando y sin utilizar PCA, para revisar que tanto varian los resultados.
 
@@ -162,7 +259,7 @@ Nota: al final se opto por no usar K-MEANS ni DBSCAN dado su peso.
 
 
 
-### Entrenamiento utilizando PCA
+### Entrenamiento utilizando PCA 
 
 
 ### Isolation Forest
@@ -291,4 +388,40 @@ Su mejor combinacion de hiperparametros fue:
 
 ```
 
-### Entrenamiento sin PCA
+## Entrenamiento (posterior a mejora del proceso de preprocesamiento)
+
+
+### Entrenamiento utilizando PCA 
+
+
+### Isolation Forest
+
+Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
+
+La mejor combinacion de hiperparametros fue:
+
+
+### GMM
+
+
+Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
+
+La mejor combinacion de hiperparametros fue:
+
+
+### Entrenamiento sin PCA 
+
+
+### Isolation Forest
+
+Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
+
+La mejor combinacion de hiperparametros fue:
+
+
+### GMM
+
+
+Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
+
+La mejor combinacion de hiperparametros fue:
