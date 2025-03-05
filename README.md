@@ -401,9 +401,9 @@ Como dudamos de lo ultimo y lo primero, optamos por hacer prueba y error con el 
 ### Matriz de estudio
 
 
-| Variante de preprocesamiento | GMM                                                                                                                                             | Isolation Forest |
-|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-| + Scaler; + PCA              | Mejor precision 0.015431987397147543 Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 100, 'n_components': 8, 'tol': 0.001} |                  |
-| - Scaler; + PCA              | Mejor precision 0.0182587260208171 Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 300, 'n_components': 8, 'tol': 0.001}   |                  |
-| + Scaler; - PCA              | Mejor precision 0.22788864546227075 Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 300, 'n_components': 6, 'tol': 0.0001}      |                  |
-| - Scaler; - PCA              | Mejor precision 0.16727068566766348 Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 100, 'n_components': 8, 'tol': 1e-05}       |                  |
+| Variante de preprocesamiento | GMM                                                                                                                                                | Isolation Forest |
+|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
+| + Scaler; + PCA              | Mejor precision 0.015431987397147543<br>Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 100, 'n_components': 8, 'tol': 0.001} |                  |
+| - Scaler; + PCA              | Mejor precision 0.0182587260208171<br>Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 300, 'n_components': 8, 'tol': 0.001}   |                  |
+| + Scaler; - PCA              | Mejor precision 0.22788864546227075<br>Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 300, 'n_components': 6, 'tol': 0.0001}      |                  |
+| - Scaler; - PCA              | Mejor precision 0.16727068566766348<br>Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 100, 'n_components': 8, 'tol': 1e-05}       |                  |

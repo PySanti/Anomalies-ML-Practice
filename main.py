@@ -21,7 +21,7 @@ param_grid = {
 
 for scaler, pca in [(True, True), (True, False), (False, False), (False, True)]:
     filename = generate_filename(scaler, pca)
-    print(f"Generando {filename}")
+    print(f"~~~~~ Generando {filename}")
     [df_train, df_test, df_val] = basic_preprocess(pd.read_csv("./data/original_data.csv"), TARGET, scaler=scaler, pca=pca)
     grid_search = GridSearchCV(GaussianMixture(), param_grid, cv=4, n_jobs=6, verbose=10, scoring=custom_scorer(df_val, TARGET))
     grid_search.fit(df_train.query(f"{TARGET} == 0").drop(TARGET, axis=1))

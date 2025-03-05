@@ -15,7 +15,7 @@ def custom_scorer(df_val, target):
     return scorer
 
 def generate_filename(scaler, pca):
-    filename = ["gmm"]
+    filename = ["if"]
     filename.append("_scaler" if scaler else "_no-scaler")
     filename.append("_pca" if pca else "_no-pca")
     filename.append(".joblib")
