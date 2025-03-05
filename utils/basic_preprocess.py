@@ -4,14 +4,13 @@ from preprocess.nan_fixer import  CustomImputer
 import pandas as pd
 from preprocess.encoding import FrecuencyEncoding
 from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
 from preprocess.scaler import CustomScaler
-import numpy as np
+from sklearn.decomposition import PCA
 
 
 
 
-def basic_preprocess(df, target : str):
+def basic_preprocess(df, target : str, scaler=False, pca=False):
 
     important_features = ['amt', 'category', 'merchant', 'trans_date_trans_time', 'unix_time', 'dob', 'street', 'merch_lat', 'merch_long', 'city', 'merch_zipcode', 'city_pop', 'job', 'last', 'first', 'cc_num', 'long', 'zip', "is_fraud"]
 
@@ -21,15 +20,22 @@ def basic_preprocess(df, target : str):
     df_train, unseen_df = train_test_split(df, test_size=0.2, shuffle=True, random_state=42, stratify=df[target])
     df_val, df_test = train_test_split(unseen_df, test_size=0.5, shuffle=True, random_state=42, stratify=unseen_df[target])
 
-    pipeline = Pipeline([
+    steps_list = [
         ("imputer",         CustomImputer(strategy="mean", attributes=["merch_zipcode"])),
         ("date_converter",  DateConverter(["trans_date_trans_time", "dob"])),
         ("encoding",        FrecuencyEncoding()),
-        ("scaler",          CustomScaler(df.drop(target, axis=1).columns.tolist())),
-        ("pca",             PCA(n_components=0.999)),
-    ], verbose=True)
-    
+    ]
+    if scaler:
+        steps_list.append(
+            ("scaler", CustomScaler(df.drop(target, axis=1).columns.tolist()))
+        )
+    if pca:
+        steps_list.append(
+            ("pca", PCA(n_components=0.999))
+        )
 
+
+    pipeline = Pipeline(steps_list)
     X_train = pd.DataFrame(pipeline.fit_transform(df_train.drop(target, axis=1), df_train[target]),   index=df_train.index)
     X_test  = pd.DataFrame(pipeline.transform(df_test.drop(target, axis=1)),    index=df_test.index)
     X_val   = pd.DataFrame(pipeline.transform(df_val.drop(target, axis=1)),     index=df_val.index)

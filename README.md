@@ -251,15 +251,12 @@ def basic_preprocess(df, target : str):
 
 ## Entrenamiento (previo a deteccion de problemas de preprocesamiento)
 
-La idea sera evaluar los resultados de cada uno de los algoritmos utilizando y sin utilizar PCA, para revisar que tanto varian los resultados.
+La idea sera evaluar los resultados de cada uno de los algoritmos utilizando diferentes procesos de preprocesamiento para cada uno de los algoritmos, esto para poder explotar al maximo cada uno de ellos.
 
 *Se llevara a cabo un proceso iterativo de seleccion de modelo, entrenamiento y evaluacion de cada algoritmo por separado*
 
 Nota: al final se opto por no usar K-MEANS ni DBSCAN dado su peso.
 
-
-
-### Entrenamiento utilizando PCA 
 
 
 ### Isolation Forest
@@ -390,38 +387,23 @@ Su mejor combinacion de hiperparametros fue:
 
 ## Entrenamiento (posterior a mejora del proceso de preprocesamiento)
 
+Fue interesante en este proceso ver como, a pesar de haber mejorado enormemente el preprocesamiento general, la precision no aumento tantisimo, a diferencia de lo que se podria esperar. Esto nos llevo a pensar lo siguiente:
 
-### Entrenamiento utilizando PCA 
+Cuales pueden ser las razones de una mala precision en el contexto de un preprocesamiento tan revisado?
 
+* El algoritmo no da para mas
+* Se necesita hacer un proceso de prueba y error con el preprocesamiento (quitar scalers, quitar PCA, etc)
+* Algo se esta haciendo mal en el entrenamiento o evaluacion
 
-### Isolation Forest
-
-Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
-
-La mejor combinacion de hiperparametros fue:
-
-
-### GMM
+Como dudamos de lo ultimo y lo primero, optamos por hacer prueba y error con el preprocesamiento.
 
 
-Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
-
-La mejor combinacion de hiperparametros fue:
+### Matriz de estudio
 
 
-### Entrenamiento sin PCA 
-
-
-### Isolation Forest
-
-Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
-
-La mejor combinacion de hiperparametros fue:
-
-
-### GMM
-
-
-Se utilizo el mismo algoritmo para la seleccion de modelo que mas arriba.
-
-La mejor combinacion de hiperparametros fue:
+| Variante de preprocesamiento | GMM                                                                                                                                             | Isolation Forest |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
+| + Scaler; + PCA              | Mejor precision 0.015431987397147543 Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 100, 'n_components': 8, 'tol': 0.001} |                  |
+| - Scaler; + PCA              | Mejor precision 0.0182587260208171 Mejores hiperparametros {'covariance_type': 'spherical', 'max_iter': 300, 'n_components': 8, 'tol': 0.001}   |                  |
+| + Scaler; - PCA              | Mejor precision 0.22788864546227075 Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 300, 'n_components': 6, 'tol': 0.0001}      |                  |
+| - Scaler; - PCA              | Mejor precision 0.16727068566766348 Mejores hiperparametros {'covariance_type': 'diag', 'max_iter': 100, 'n_components': 8, 'tol': 1e-05}       |                  |
